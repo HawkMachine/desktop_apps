@@ -52,38 +52,41 @@ def ResizePixbuf(pixbuf, width, height):
   return pixbuf.scale_simple(px_width, px_height, gtk.gdk.INTERP_BILINEAR)
 
 
-def SetBatteryIcon(icon, icon_filename, tooltip=None):
-  """Updates the status icon using path to pixbux and tooltip."""
-  path = os.path.join(ICONS_DIR, icon_filename)
-  logging.info('Setting icon image to: %s', path)
-  pixbuf = gtk.gdk.pixbuf_new_from_file(path)
-  size = icon.get_size()
-  # pixbuf = ResizePixbuf(pixbuf, size, size)
-  icon.set_from_pixbuf(pixbuf)
-  if tooltip:
-    icon.set_tooltip_text(tooltip)
+class BatteryStatusIcon(object):
 
+  def __init__(self):
+    self.icon = gtk.StatusIcon()
+    self.pixbufs = {}
+    for x, filename in BATTERY_ICONS.iteritems():
+      self.pixbufs[x] = gtk.gdk.pixbuf_new_from_file(
+          os.path.join(ICONS_DIR, filename))
 
-def UpdateBattery(icon, percentage, charging, remaining):
-  if percentage is None:
-    SetBatteryIcon(icon, BATTERY_ICONS[0],
-                   tooltip="Error occred while running acpi.")
-    return
+  def _Set(self, pixbuf, tooltip):
+    self.icon.set_from_pixbuf(pixbuf)
+    if tooltip:
+      self.icon.set_tooltip_text(tooltip)
 
-  logging.info('Battery percentage: %d', percentage)
-  levels = sorted(BATTERY_ICONS.keys())
-  level = [x for x in levels if x <= percentage][-1]
-  logging.info('Battery level found: %d', level)
-  icon_filename = BATTERY_ICONS[level]
+  def _GetPixbuf(self, percentage):
+    levels = sorted(self.pixbufs.keys())
+    level = [x for x in levels if x <= percentage][-1]
+    logging.info('Battery level found: %d for prcentage %s', level, percentage)
+    pixbuf = self.pixbufs[level]
+    return pixbuf
 
-  tooltip = "%d%%" % percentage
-  if remaining:
-    if charging:
-      info = '%s until charged' % remaining
-    else:
-      info = '%s remaining' % remaining
-    tooltip = "%s (%s)" % (tooltip, info)
-  SetBatteryIcon(icon, icon_filename, tooltip=tooltip)
+  def SetBatteryStatus(self, percentage, charging, remaining):
+    if percentage is None:
+      self._Set(self.pixbufs[0], "Error occred while running acpi.")
+      return
+
+    pixbuf = self._GetPixbuf(percentage)
+    tooltip = "%d%%" % percentage
+    if remaining:
+      if charging:
+        info = '%s until charged' % remaining
+      else:
+        info = '%s remaining' % remaining
+      tooltip = "%s (%s)" % (tooltip, info)
+    self._Set(pixbuf, tooltip=tooltip)
 
 
 def GetBatteryInfo():
@@ -104,10 +107,10 @@ def GetBatteryInfo():
   return percentage, chargning, remaining
 
 
-def GtkCallback(icon):
+def GtkCallback(bts):
   """Helper method to be run by gtk as a callback."""
   percentage, charging, remaining = GetBatteryInfo()
-  UpdateBattery(icon, percentage, charging, remaining)
+  bts.SetBatteryStatus(percentage, charging, remaining)
 
   # Return True to run again.
   return True
@@ -122,13 +125,13 @@ def main():
 
   logging.basicConfig(filename=options.logfile)
 
-  icon = gtk.StatusIcon()
+  bts = BatteryStatusIcon()
   signal.signal(signal.SIGINT, gtk.main_quit)
 
   # Run now and every %options.timeout% seconds.
-  GtkCallback(icon)
+  GtkCallback(bts)
   def gtkCallback():
-    return GtkCallback(icon)
+    return GtkCallback(bts)
   gtk.timeout_add(options.timeout * 1000, gtkCallback)
   gtk.main()
 
