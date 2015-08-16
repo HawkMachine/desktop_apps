@@ -95,9 +95,9 @@ def GetBatteryInfo():
   output = subprocess.check_output(('acpi', '-b'))
   print '%r' % output
 
-  m = re.match(r'Battery \d+: (?P<status>\w+), (?P<percentage>\d+)%, '
+  m = re.match(r'Battery \d+: (?P<status>\w+), (?P<percentage>\d+)%(, '
       '(((?P<remaining>.{8}) (until charged|remaining))|'
-      '(dis)?charging at zero rate - will never fully (dis)?charge.)\n', output)
+      '(dis)?charging at zero rate - will never fully (dis)?charge.))?\n', output)
   if not m:
     return None, None, None
   percentage = int(m.group('percentage'))
