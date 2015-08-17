@@ -1,14 +1,20 @@
 #!/usr/bin/python
 
 import os
+import re
 import gtk
+import json
+import argparse
 import pynotify
 import time
 
-ICONS_DIR=os.path.join(os.path.dirname(os.path.abspath(__file__)), "icons")
+
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+ICONS_DIR = os.path.join(BASE_DIR, "icons")
+CONFIG_FILE = "config.json"
 
 
-def parseTime(seconds):
+def formatTime(seconds):
   if seconds < 60:
     return '%ds' % seconds
   minutes = seconds / 60
@@ -19,9 +25,23 @@ def parseTime(seconds):
     return '%dm' % minutes
 
 
+def parseTime(timeStr):
+  """Parses time string and returns equivalend number od seconds."""
+  regex = r'((\d+)[ms ]?\s*)'
+  if not re.match(regex, timeStr + ' '):
+    return ValueError("%s does not match %r" % (timeStr, regex))
+  time = 0
+  for match in re.findall('(\d+)([ms]?)', timeStr):
+    if match[1] == 'm':
+      time += 60 * int(match[0])
+    else:
+      time += int(match[0])
+  return time
+
+
 class TeaSetting(object):
   ICON = 'tea.png'
-  def __init__(self, name='Water', time=3*60):
+  def __init__(self, name='Tea', time=3*60):
     self.name = name
     self.time = time
   def getNotificationTitle(self):
@@ -29,7 +49,7 @@ class TeaSetting(object):
   def getNotificationDescription(self):
     return '%s tea is ready to drink! \nEnjoy!' % self.name
   def getMenuLabel(self):
-    return '%s (%s)' % (self.name, parseTime(self.time))
+    return '%s (%s)' % (self.name, formatTime(self.time))
 
 
 class WaterSetting(object):
@@ -42,7 +62,7 @@ class WaterSetting(object):
   def getNotificationDescription(self):
     return ''
   def getMenuLabel(self):
-    return 'Water: %s (%s)' % (self.name, parseTime(self.time))
+    return 'Water: %s (%s)' % (self.name, formatTime(self.time))
 
 
 class PendingSetting(object):
@@ -53,7 +73,7 @@ class PendingSetting(object):
   def getMenuLabel(self):
     menu_label = self.setting.getMenuLabel()
     time_left = (self.creation_time + self.setting.time) - time.time()
-    return '%s to %s' % (parseTime(time_left), menu_label)
+    return '%s to %s' % (formatTime(time_left), menu_label)
 
 
 def GetIconMenuItem(image_name, image_size=20, label='', onclick=None, onclick_args=()):
@@ -153,17 +173,51 @@ class TeaStatusIcon(object):
     self.removePendingNotification(id)
 
 
+def LoadConfig(path):
+  with open(path, 'r') as fh:
+    content = fh.read()
+  conf = json.loads(content)
+  if not conf:
+    conf = {
+        "tea": {
+          "name": "Tea",
+          "time": "5m",
+          },
+        "water": {
+          "name": "Water",
+          "time": "5m",
+          },
+        }
+
+  teas = []
+  for tea_conf in conf.get("tea", []):
+    name = tea_conf.get("name", "")
+    time = tea_conf.get("time", "")
+    time = parseTime(time)
+    if not name or not time:
+      raise ValueError("Broken tea config: missing or empty name or time field")
+    teas.append(TeaSetting(name=name, time=time))
+
+  waters = []
+  for water_conf in conf.get("water", []):
+    name = water_conf.get("name", "")
+    time = water_conf.get("time", "")
+    if not name or not time:
+      raise ValueError("Broken water config: missing or empty name or time field")
+    time = parseTime(time)
+    waters.append(WaterSetting(name=name, time=time))
+
+  return teas, waters
+
+
 if __name__ == '__main__':
+  parser = argparse.ArgumentParser()
+  parser.add_argument("--config", "-c", dest="config",
+      default=os.path.join(BASE_DIR, CONFIG_FILE))
+  args = parser.parse_args()
+
+  teas, waters = LoadConfig(args.config)
+
   pynotify.init('TeaReminder')
-  teas = [
-      TeaSetting('Fruits Tea', 5 * 60),
-      TeaSetting('Green Tea', 3 * 60),
-      TeaSetting('White Tea - longer', 1 * 60 + 30),
-      TeaSetting('White Tea - shorter', 1 * 60),
-      ]
-  waters = [
-      WaterSetting('Yerba', 10 * 60),
-      WaterSetting('Green Tea', 5 * 60),
-  ]
   ti = TeaStatusIcon(teas, waters)
   gtk.main()

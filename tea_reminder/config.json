@@ -1,0 +1,34 @@
+{
+	"tea": [
+    {
+			"name": "Fruits Tea",
+			"time": "5m"
+		},
+    {
+			"name": "Green Tea",
+			"time": "3m"
+		},
+    {
+			"name": "White Tea - longer",
+			"time": "1m30s"
+		},
+    {
+			"name": "White Tea - shorter",
+			"time": "1m"
+		}
+	],
+	"water": [
+		{
+			"name": "Yerba",
+			"time": "10m"
+		},
+		{
+			"name": "Green Tea",
+			"time": "7m"
+		},
+		{
+			"name": "TEST",
+			"time": "7m"
+		}
+	]
+}
