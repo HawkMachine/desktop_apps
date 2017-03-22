@@ -13,20 +13,6 @@ from optparse import OptionParser
 ICONS_DIR = os.path.join(os.path.split(os.path.abspath(__file__))[0], "icons")
 
 
-BATTERY_ICONS = {
-    0: 'battery0.png',
-    10: 'battery10.png',
-    20: 'battery20.png',
-    30: 'battery30.png',
-    40: 'battery40.png',
-    50: 'battery50.png',
-    60: 'battery60.png',
-    70: 'battery70.png',
-    80: 'battery80.png',
-    90: 'battery90.png',
-    }
-
-
 GLOBAL_ESTIMATE_DATA = None
 
 
@@ -57,7 +43,8 @@ class BatteryStatusIcon(object):
   def __init__(self):
     self.icon = gtk.StatusIcon()
     self.pixbufs = {}
-    for x, filename in BATTERY_ICONS.iteritems():
+    for x in xrange(101):
+      filename = 'battery%s.gif' % x
       self.pixbufs[x] = gtk.gdk.pixbuf_new_from_file(
           os.path.join(ICONS_DIR, filename))
 
@@ -96,9 +83,10 @@ def GetBatteryInfo():
   print '%r' % output
 
   m = re.match(r'Battery \d+: (?P<status>\w+), (?P<percentage>\d+)%(, '
-      '(((?P<remaining>.{8}) (until charged|remaining))|'
+      '(((?P<remaining>.{8})? (until charged|remaining))|'
       '(dis)?charging at zero rate - will never fully (dis)?charge.))?\n', output)
   if not m:
+    print 'Failed to match output against regex'
     return None, None, None
   percentage = int(m.group('percentage'))
   chargning = m.group('status').upper() == 'CHARGING'
